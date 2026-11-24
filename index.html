@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModaGestão - Sistema Inteligente para Loja de Roupa (TCC)</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            900: '#4c1d95',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar e animações suaves */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .fade-in { animation: fadeIn 0.25s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .shake { animation: shake 0.35s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translateX(-2px); }
+            20%, 80% { transform: translateX(4px); }
+            30%, 50%, 70% { transform: translateX(-6px); }
+            40%, 60% { transform: translateX(6px); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Toast / Notificação Flutuante (Substitui alert()) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Barra de Navegação Superior -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row justify-between items-center py-3 gap-3">
+                <!-- Logo e Subtítulo TCC -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/30">
+                        <i class="fa-solid fa-shirt text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-xl font-extrabold tracking-tight text-slate-900">Moda<span class="text-brand-600">Gestão</span></h1>
+                            <span class="text-[10px] font-bold uppercase tracking-wider bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">Protótipo TCC</span>
+                        </div>
+                        <p class="text-xs text-slate-500">Catálogo Inteligente, Provador & Controle de Condicional</p>
+                    </div>
+                </div>
+
+                <!-- Alternador de Perfil (Visão do Cliente vs Painel do Lojista) -->
+                <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto justify-center">
+                    <button id="btn-view-client" onclick="switchView('client')" class="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-brand-700 shadow-sm">
+                        <i class="fa-solid fa-store"></i>
+                        <span>Visão do Cliente</span>
+                    </button>
+                    <button id="btn-view-admin" onclick="switchView('admin')" class="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-600 hover:text-slate-900">
+                        <i id="admin-lock-icon" class="fa-solid fa-lock text-xs text-slate-400"></i>
+                        <span>Painel do Lojista</span>
+                    </button>
+                </div>
+
+                <!-- Botão Sacola de Reserva (Visível na Visão do Cliente) -->
+                <div id="client-cart-btn-wrapper" class="flex items-center">
+                    <button onclick="toggleCartModal(true)" class="relative flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                        <i class="fa-solid fa-bag-shopping"></i>
+                        <span>Sacola / Reserva</span>
+                        <span id="cart-badge" class="bg-brand-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ========================================================= -->
+        <!-- VISÃO 1: VITRINE DO CLIENTE & PROVADOR VIRTUAL            -->
+        <!-- ========================================================= -->
+        <section id="view-client" class="fade-in space-y-6">
+            <!-- Banner Explicativo do Problema Resolvido -->
+            <div class="bg-gradient-to-r from-brand-700 via-brand-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="space-y-2 max-w-2xl">
+                    <div class="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium">
+                        <i class="fa-solid fa-bolt text-amber-300"></i>
+                        <span>Estoque Sincronizado em Tempo Real</span>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">Escolha suas peças sem dúvida de tamanho ou disponibilidade</h2>
+                    <p class="text-brand-100 text-sm sm:text-base">
+                        Filtre pelo seu tamanho real disponível na loja, utilize nosso <strong>Provador Virtual por Medidas</strong> e reserve suas peças direto pelo WhatsApp ou para prova presencial.
+                    </p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
+                    <button onclick="openFittingModal(products[0].id)" class="bg-white text-brand-700 hover:bg-brand-50 font-bold px-5 py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-ruler-combined"></i>
+                        <span>Testar Provador Virtual</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Barra de Filtros Inteligentes (Categoria + Tamanho Real em Estoque) -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <!-- Filtro de Categorias -->
+                <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                    <span class="text-xs font-bold uppercase text-slate-400 mr-1"><i class="fa-solid fa-tag mr-1"></i>Categoria:</span>
+                    <button onclick="setCategoryFilter('Todas')" class="cat-filter-btn active px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-brand-600 text-white transition" data-cat="Todas">Todas</button>
+                    <button onclick="setCategoryFilter('Camisetas')" class="cat-filter-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-cat="Camisetas">Camisetas</button>
+                    <button onclick="setCategoryFilter('Calças')" class="cat-filter-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-cat="Calças">Calças</button>
+                    <button onclick="setCategoryFilter('Vestidos')" class="cat-filter-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-cat="Vestidos">Vestidos</button>
+                    <button onclick="setCategoryFilter('Jaquetas')" class="cat-filter-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-cat="Jaquetas">Jaquetas</button>
+                </div>
+
+                <!-- Filtro por Tamanho com Estoque Real -->
+                <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                    <span class="text-xs font-bold uppercase text-slate-400 mr-1"><i class="fa-solid fa-maximize mr-1"></i>Meu Tamanho:</span>
+                    <button onclick="setSizeFilter('Todos')" class="size-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white transition" data-size="Todos">Todos</button>
+                    <button onclick="setSizeFilter('P')" class="size-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-size="P">P</button>
+                    <button onclick="setSizeFilter('M')" class="size-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-size="M">M</button>
+                    <button onclick="setSizeFilter('G')" class="size-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-size="G">G</button>
+                    <button onclick="setSizeFilter('GG')" class="size-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition" data-size="GG">GG</button>
+                </div>
+            </div>
+
+            <!-- Grid de Produtos -->
+            <div id="catalog-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Renderizado dinamicamente via JS -->
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- TELA DE BLOQUEIO / SENHA PARA O PAINEL DO LOJISTA         -->
+        <!-- ========================================================= -->
+        <section id="view-admin-lock" class="hidden fade-in py-10">
+            <div id="admin-lock-card" class="max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+                <div class="bg-gradient-to-r from-slate-900 via-brand-900 to-brand-700 p-6 text-white text-center space-y-2">
+                    <div class="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm mx-auto flex items-center justify-center text-2xl shadow-inner">
+                        <i class="fa-solid fa-shield-halved text-brand-200"></i>
+                    </div>
+                    <h2 class="text-xl font-extrabold tracking-tight">Acesso Restrito — Painel do Lojista</h2>
+                    <p class="text-xs text-brand-100">Área exclusiva para gestão de estoque, grade e controle de condicional.</p>
+                </div>
+
+                <form onsubmit="verifyAdminPassword(event)" class="p-6 space-y-4">
+                    <div>
+                        <label for="admin-password-input" class="block text-xs font-bold uppercase text-slate-700 mb-1.5">
+                            Senha do Administrador
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="admin-password-input" required placeholder="Digite sua senha secreta..." autocomplete="current-password"
+                                class="w-full pl-4 pr-11 py-3 rounded-xl border border-slate-300 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition">
+                            <button type="button" onclick="togglePasswordVisibility('admin-password-input', 'eye-icon-login')"
+                                class="absolute inset-y-0 right-0 px-3.5 text-slate-400 hover:text-slate-700 flex items-center" title="Mostrar ou ocultar senha">
+                                <i id="eye-icon-login" class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <p id="admin-password-error" class="hidden text-xs font-bold text-rose-600 mt-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span>Senha incorreta. Tente novamente.</span>
+                        </p>
+                    </div>
+
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-unlock-keyhole"></i>
+                        <span>Desbloquear Painel</span>
+                    </button>
+
+                    <button type="button" onclick="switchView('client')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-xs">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Voltar para Visão do Cliente</span>
+                    </button>
+
+                    <div id="default-password-hint" class="pt-3 border-t border-slate-100 text-center">
+                        <p class="text-[11px] text-slate-400">
+                             
+                    
+                            
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- VISÃO 2: PAINEL DO LOJISTA (GESTÃO, GRADE & CONDICIONAL)  -->
+        <!-- ========================================================= -->
+        <section id="view-admin" class="hidden fade-in space-y-6">
+            
+            <!-- Barra de Segurança do Lojista (Alterar Senha & Bloquear) -->
+            <div class="bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-xs font-bold text-slate-700">Sessão Administrativa Desbloqueada</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <button onclick="toggleChangePasswordModal(true)" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-key text-brand-600"></i>
+                        <span>Alterar Senha do Lojista</span>
+                    </button>
+                    <button onclick="lockAdminPanel()" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Bloquear Painel</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPIs / Indicadores Gerenciais -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- KPI 1: Total em Estoque -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Peças na Loja</p>
+                        <p id="kpi-total-stock" class="text-3xl font-extrabold text-slate-900 mt-1">0</p>
+                        <p class="text-xs text-emerald-600 font-medium mt-1"><i class="fa-solid fa-check-circle mr-1"></i>Disponíveis na grade</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                </div>
+
+                <!-- KPI 2: Em Condicional (Fora da Loja) -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Em Condicional</p>
+                        <p id="kpi-conditional-count" class="text-3xl font-extrabold text-brand-600 mt-1">0</p>
+                        <p class="text-xs text-slate-500 font-medium mt-1"><i class="fa-solid fa-bag-shopping mr-1"></i>Em sacolas de prova</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-person-walking-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- KPI 3: Estoque Encalhado (+60 dias) -->
+                <div class="bg-white p-5 rounded-2xl border border-amber-200 bg-amber-50/30 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-amber-700">Estoque Encalhado</p>
+                        <p id="kpi-stagnant-count" class="text-3xl font-extrabold text-amber-600 mt-1">0</p>
+                        <p class="text-xs text-amber-700 font-medium mt-1"><i class="fa-solid fa-clock mr-1"></i>+60 dias sem giro</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+
+                <!-- KPI 4: Alertas de Reposição / Atraso -->
+                <div class="bg-white p-5 rounded-2xl border border-rose-200 bg-rose-50/30 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-rose-700">Alertas Críticos</p>
+                        <p id="kpi-alerts-count" class="text-3xl font-extrabold text-rose-600 mt-1">0</p>
+                        <p class="text-xs text-rose-700 font-medium mt-1"><i class="fa-solid fa-bell mr-1"></i>Grade baixa ou atraso</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-fire"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navegação Interna do Painel do Lojista -->
+            <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+                <button id="tab-btn-conditional" onclick="switchAdminTab('conditional')" class="px-4 py-2.5 rounded-xl text-sm font-bold bg-brand-600 text-white shadow-sm transition flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span>Controle de Condicional (Sacola de Prova)</span>
+                </button>
+                <button id="tab-btn-stock" onclick="switchAdminTab('stock')" class="px-4 py-2.5 rounded-xl text-sm font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-table-cells"></i>
+                    <span>Estoque por Grade & Peças Encalhadas</span>
+                </button>
+            </div>
+
+            <!-- ABA A: CONTROLE DE CONDICIONAL (SACOLA DE PROVA) -->
+            <div id="admin-tab-conditional" class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
+                <!-- Formulário de Nova Sacola de Condicional -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4">
+                    <div class="border-b border-slate-100 pb-3">
+                        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-plus-circle text-brand-600"></i>
+                            <span>Nova Sacola de Prova</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-1">Dá baixa temporária automática no estoque real.</p>
+                    </div>
+
+                    <form id="form-new-conditional" onsubmit="createConditional(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nome do Cliente *</label>
+                            <input type="text" id="cond-client-name" required placeholder="Ex: Mariana Oliveira" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">WhatsApp *</label>
+                                <input type="text" id="cond-client-phone" required placeholder="(11) 99999-0000" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Data Devolução *</label>
+                                <input type="date" id="cond-due-date" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Seleção de Peças para o Condicional -->
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3 overflow-hidden box-border">
+                            <label class="block text-xs font-bold text-slate-700 uppercase">Adicionar Peças da Grade</label>
+                            <div class="space-y-2">
+                                <select id="cond-product-select" onchange="updateCondSizeOptions()" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium bg-white outline-none focus:ring-2 focus:ring-brand-500">
+                                    <!-- Populado via JS -->
+                                </select>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <select id="cond-size-select" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold bg-white outline-none focus:ring-2 focus:ring-brand-500">
+                                        <!-- Populado via JS -->
+                                    </select>
+                                    <button type="button" onclick="addTempCondItem()" class="w-full bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                        <i class="fa-solid fa-plus"></i>
+                                        <span>Incluir</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Lista temporária de peças selecionadas -->
+                            <div id="cond-temp-items-list" class="space-y-1.5 max-h-36 overflow-y-auto">
+                                <p class="text-xs text-slate-400 italic text-center py-2">Nenhuma peça selecionada ainda.</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2 text-sm">
+                            <i class="fa-solid fa-check"></i>
+                            <span>Registrar Saída em Condicional</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Lista de Condicionais Ativos e Histórico -->
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4 mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Sacolas em Condicional (Acompanhamento)</h3>
+                                <p class="text-xs text-slate-500">Controle o prazo de retorno e converta peças provadas em venda ou estorno ao estoque.</p>
+                            </div>
+                            <span class="text-xs font-semibold bg-brand-50 text-brand-700 px-3 py-1 rounded-full self-start sm:self-auto">
+                                Baixa automática ativada
+                            </span>
+                        </div>
+
+                        <div id="conditionals-list" class="space-y-4">
+                            <!-- Renderizado via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA B: CONTROLE DE ESTOQUE POR GRADE & ALERTA DE ENCALHADOS -->
+            <div id="admin-tab-stock" class="hidden space-y-6 fade-in">
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Matriz de Estoque por Grade (Tamanho × Cor)</h3>
+                            <p class="text-xs text-slate-500">Peças com mais de 60 dias sem venda recebem alerta automático para liquidação.</p>
+                        </div>
+                        <button onclick="toggleNewProductModal(true)" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Cadastrar Nova Peça</span>
+                        </button>
+                    </div>
+
+                    <!-- Tabela Responsiva de Grade -->
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+                                    <th class="py-3.5 px-4">Produto / Cor</th>
+                                    <th class="py-3.5 px-3">Preço</th>
+                                    <th class="py-3.5 px-3 text-center">Grade (Ajuste Rápido)</th>
+                                    <th class="py-3.5 px-3 text-center">Giro / Status</th>
+                                    <th class="py-3.5 px-4 text-right">Ação Inteligente</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stock-table-body" class="divide-y divide-slate-100 text-sm">
+                                <!-- Renderizado via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 1: PROVADOR VIRTUAL POR MEDIDAS                     -->
+    <!-- ========================================================= -->
+    <div id="modal-fitting" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden fade-in">
+            <div class="bg-brand-600 p-5 text-white flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i class="fa-solid fa-ruler-combined"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight">Provador Virtual Inteligente</h3>
+                        <p id="fitting-product-name" class="text-xs text-brand-100">Cálculo antropométrico baseado na modelagem da peça</p>
+                    </div>
+                </div>
+                <button onclick="closeFittingModal()" class="text-white/80 hover:text-white text-xl p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Sua Altura (cm)</label>
+                        <input type="number" id="fit-height" value="172" min="140" max="210" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Seu Peso (kg)</label>
+                        <input type="number" id="fit-weight" value="70" min="40" max="160" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Preferência de Caimento</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="setFitPreference('justo')" class="fit-pref-btn py-2.5 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition" data-pref="justo">
+                            Mais Justo
+                        </button>
+                        <button type="button" onclick="setFitPreference('regular')" class="fit-pref-btn py-2.5 px-3 rounded-xl border-2 border-brand-600 bg-brand-50 text-xs font-bold text-brand-700 transition" data-pref="regular">
+                            Regular (Padrão)
+                        </button>
+                        <button type="button" onclick="setFitPreference('largo')" class="fit-pref-btn py-2.5 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition" data-pref="largo">
+                            Mais Solto / Largo
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="calculateFitting()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                    <span>Calcular Tamanho Ideal</span>
+                </button>
+
+                <!-- Resultado do Provador -->
+                <div id="fitting-result-box" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-emerald-700">Tamanho Recomendado:</p>
+                            <div class="flex items-baseline gap-2 mt-0.5">
+                                <span id="fit-recommended-size" class="text-3xl font-black text-emerald-800">M</span>
+                                <span id="fit-stock-status" class="text-xs font-semibold text-emerald-700"></span>
+                            </div>
+                        </div>
+                        <button id="fit-add-cart-btn" onclick="addRecommendedToCart()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition">
+                            + Reservar Tamanho M
+                        </button>
+                    </div>
+                    <p id="fit-explanation" class="text-xs text-emerald-800 leading-relaxed border-t border-emerald-200/70 pt-2"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 2: SACOLA DE RESERVA & ENVIO WHATSAPP               -->
+    <!-- ========================================================= -->
+    <div id="modal-cart" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden fade-in flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-bag-shopping text-brand-600 text-lg"></i>
+                    <h3 class="font-bold text-lg text-slate-900">Minha Sacola de Reserva</h3>
+                </div>
+                <button onclick="toggleCartModal(false)" class="text-slate-400 hover:text-slate-700 text-xl p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="cart-items-container" class="p-5 overflow-y-auto flex-1 space-y-3">
+                <!-- Itens do carrinho renderizados via JS -->
+            </div>
+
+            <div class="p-5 border-t border-slate-200 bg-slate-50 space-y-3">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="font-medium text-slate-600">Total Estimado:</span>
+                    <span id="cart-total-price" class="text-xl font-extrabold text-slate-900">R$ 0,00</span>
+                </div>
+                <button onclick="sendOrderToWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-brands fa-whatsapp text-lg"></i>
+                    <span>Enviar Pedido / Reservar Prova no WhatsApp</span>
+                </button>
+                <p class="text-[11px] text-center text-slate-400">O pedido já vai formatado com código, cor e tamanho em estoque.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 3: CADASTRAR NOVA PEÇA NO ESTOQUE                   -->
+    <!-- ========================================================= -->
+    <div id="modal-new-product" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden fade-in">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-900">Cadastrar Nova Peça</h3>
+                <button onclick="toggleNewProductModal(false)" class="text-slate-400 hover:text-slate-700 text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="addNewProduct(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nome da Peça *</label>
+                    <input type="text" id="new-prod-name" required placeholder="Ex: Moletom Canguru Básico" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:border-brand-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Categoria *</label>
+                        <select id="new-prod-cat" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white outline-none">
+                            <option value="Camisetas">Camisetas</option>
+                            <option value="Calças">Calças</option>
+                            <option value="Vestidos">Vestidos</option>
+                            <option value="Jaquetas">Jaquetas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Cor Principal *</label>
+                        <input type="text" id="new-prod-color" required placeholder="Ex: Preto" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:border-brand-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Preço (R$) *</label>
+                        <input type="number" id="new-prod-price" required step="0.01" min="10" placeholder="129.90" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:border-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dias em Estoque</label>
+                        <input type="number" id="new-prod-days" value="1" min="0" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:border-brand-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Quantidade Inicial por Grade</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <div>
+                            <span class="block text-[11px] font-bold text-center text-slate-500 mb-1">P</span>
+                            <input type="number" id="new-grade-p" value="3" min="0" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-center text-sm font-bold">
+                        </div>
+                        <div>
+                            <span class="block text-[11px] font-bold text-center text-slate-500 mb-1">M</span>
+                            <input type="number" id="new-grade-m" value="5" min="0" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-center text-sm font-bold">
+                        </div>
+                        <div>
+                            <span class="block text-[11px] font-bold text-center text-slate-500 mb-1">G</span>
+                            <input type="number" id="new-grade-g" value="4" min="0" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-center text-sm font-bold">
+                        </div>
+                        <div>
+                            <span class="block text-[11px] font-bold text-center text-slate-500 mb-1">GG</span>
+                            <input type="number" id="new-grade-gg" value="2" min="0" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-center text-sm font-bold">
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                    Salvar no Estoque
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 4: ALTERAR SENHA DO PAINEL DO LOJISTA               -->
+    <!-- ========================================================= -->
+    <div id="modal-change-password" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden fade-in">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-key text-brand-600 text-lg"></i>
+                    <h3 class="font-bold text-lg text-slate-900">Definir Minha Senha Secreta</h3>
+                </div>
+                <button onclick="toggleChangePasswordModal(false)" class="text-slate-400 hover:text-slate-700 text-xl p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="saveNewAdminPassword(event)" class="p-5 space-y-4">
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    Defina uma senha pessoal para proteger o Painel do Lojista. Ela ficará salva neste navegador e a dica de senha padrão será ocultada.
+                </p>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha *</label>
+                    <div class="relative">
+                        <input type="password" id="new-admin-pass" required minlength="4" placeholder="Mínimo 4 caracteres" class="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold outline-none focus:border-brand-500">
+                        <button type="button" onclick="togglePasswordVisibility('new-admin-pass', 'eye-icon-new')" class="absolute inset-y-0 right-0 px-3 text-slate-400 hover:text-slate-700 flex items-center">
+                            <i id="eye-icon-new" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha *</label>
+                    <input type="password" id="confirm-admin-pass" required minlength="4" placeholder="Repita a nova senha" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold outline-none focus:border-brand-500">
+                </div>
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-sm">
+                    Salvar Nova Senha
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rodapé Académico TCC -->
+    <footer class="bg-white border-t border-slate-200 mt-12 py-5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-slate-500">
+            <p><strong>ModaGestão</strong> — Projeto de Trabalho de Conclusão de Curso (3º Ano Ensino Médio)</p>
+            <p>Solução para Gestão de Grade, Provador Virtual e Controle de Condicional</p>
+        </div>
+    </footer>
+
+    <!-- ========================================================= -->
+    <!-- LÓGICA JAVASCRIPT COMPLETA DO SISTEMA                     -->
+    <!-- ========================================================= -->
+    <script>
+        // 1. DADOS INICIAIS PRÉ-POPULADOS (Para demonstração imediata na banca)
+        let products = [
+            {
+                id: 1,
+                name: "Camiseta Oversized Algodão Premium",
+                category: "Camisetas",
+                color: "Off-White",
+                colorHex: "#f5f5f4",
+                price: 89.90,
+                originalPrice: null,
+                daysInStock: 14,
+                fitFactor: 1, // Modelagem ampla
+                icon: "fa-shirt",
+                bgGradient: "from-stone-200 to-amber-100",
+                iconColor: "text-stone-700",
+                stock: { P: 4, M: 6, G: 2, GG: 0 }
+            },
+            {
+                id: 2,
+                name: "Calça Cargo Sarja Utilitária",
+                category: "Calças",
+                color: "Verde Militar",
+                colorHex: "#3f6212",
+                price: 169.90,
+                originalPrice: null,
+                daysInStock: 28,
+                fitFactor: 0, // Modelagem regular
+                icon: "fa-socks",
+                bgGradient: "from-lime-100 to-emerald-200",
+                iconColor: "text-emerald-800",
+                stock: { P: 1, M: 5, G: 4, GG: 2 }
+            },
+            {
+                id: 3,
+                name: "Jaqueta Jeans Vintage Estonada",
+                category: "Jaquetas",
+                color: "Azul Índigo",
+                colorHex: "#1d4ed8",
+                price: 229.90,
+                originalPrice: null,
+                daysInStock: 78, // +60 dias -> Alerta de Estoque Encalhado!
+                fitFactor: 0,
+                icon: "fa-vest",
+                bgGradient: "from-blue-100 to-indigo-200",
+                iconColor: "text-blue-800",
+                stock: { P: 2, M: 3, G: 3, GG: 1 }
+            },
+            {
+                id: 4,
+                name: "Vestido Midi Canelado",
+                category: "Vestidos",
+                color: "Terracota",
+                colorHex: "#c2410c",
+                price: 139.90,
+                originalPrice: null,
+                daysInStock: 65, // +60 dias -> Alerta de Estoque Encalhado!
+                fitFactor: -1, // Modelagem mais justa
+                icon: "fa-person-dress",
+                bgGradient: "from-orange-100 to-rose-200",
+                iconColor: "text-orange-800",
+                stock: { P: 3, M: 2, G: 0, GG: 1 }
+            },
+            {
+                id: 5,
+                name: "Camiseta Básica Gola Careca",
+                category: "Camisetas",
+                color: "Preto",
+                colorHex: "#18181b",
+                price: 69.90,
+                originalPrice: null,
+                daysInStock: 9,
+                fitFactor: 0,
+                icon: "fa-shirt",
+                bgGradient: "from-slate-200 to-zinc-300",
+                iconColor: "text-zinc-800",
+                stock: { P: 5, M: 8, G: 6, GG: 3 }
+            },
+            {
+                id: 6,
+                name: "Calça Alfaiataria Slim",
+                category: "Calças",
+                color: "Bege Areia",
+                colorHex: "#d6d3d1",
+                price: 189.90,
+                originalPrice: null,
+                daysInStock: 19,
+                fitFactor: -1,
+                icon: "fa-user-tie",
+                bgGradient: "from-amber-50 to-orange-100",
+                iconColor: "text-amber-900",
+                stock: { P: 2, M: 4, G: 3, GG: 0 }
+            }
+        ];
+
+        // Registros de Condicional (Sacolas de Prova) pré-populados
+        // Nota: Os itens abaixo já foram descontados do estoque acima para manter consistência real!
+        let conditionals = [
+            {
+                id: 101,
+                clientName: "Camila Ferreira",
+                phone: "(11) 98765-4321",
+                outDate: getRelativeDate(-1),
+                dueDate: getRelativeDate(1), // Prazo amanhã -> Status: Em prova
+                status: "Em prova",
+                items: [
+                    { productId: 4, productName: "Vestido Midi Canelado", size: "M", price: 139.90 },
+                    { productId: 1, productName: "Camiseta Oversized Algodão Premium", size: "P", price: 89.90 }
+                ]
+            },
+            {
+                id: 102,
+                clientName: "Lucas Andrade",
+                phone: "(11) 99123-8877",
+                outDate: getRelativeDate(-4),
+                dueDate: getRelativeDate(-1), // Venceu ontem -> Status: Atrasado!
+                status: "Atrasado",
+                items: [
+                    { productId: 2, productName: "Calça Cargo Sarja Utilitária", size: "G", price: 169.90 },
+                    { productId: 3, productName: "Jaqueta Jeans Vintage Estonada", size: "G", price: 229.90 }
+                ]
+            }
+        ];
+
+        // Estado da Aplicação
+        let selectedCategory = 'Todas';
+        let selectedSizeFilter = 'Todos';
+        let selectedCardSizes = {}; // Armazena o tamanho clicado em cada card { productId: 'M' }
+        let cart = [];
+        let currentFittingProductId = null;
+        let currentFitPreference = 'regular';
+        let currentRecommendedSize = 'M';
+        let tempCondItems = []; // Itens sendo montados no formulário de condicional
+        let isAdminAuthenticated = false; // Controle de bloqueio do Painel do Lojista
+        const ADMIN_PASS_STORAGE_KEY = 'modagestao_admin_password';
+
+        // Helper de Datas Relativas (YYYY-MM-DD)
+        function getRelativeDate(daysOffset) {
+            const d = new Date();
+            d.setDate(d.getDate() + daysOffset);
+            return d.toISOString().split('T')[0];
+        }
+
+        function formatDateBR(isoDate) {
+            if (!isoDate) return '';
+            const [y, m, d] = isoDate.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function formatMoney(val) {
+            return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        // Sistema de Notificações Toast (Sem usar alert())
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-slate-900 text-white border-emerald-500',
+                warning: 'bg-amber-600 text-white border-amber-300',
+                error: 'bg-rose-600 text-white border-rose-300'
+            };
+            const icons = {
+                success: 'fa-circle-check text-emerald-400',
+                warning: 'fa-triangle-exclamation text-white',
+                error: 'fa-circle-exclamation text-white'
+            };
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border-l-4 text-sm font-medium fade-in ${colors[type]}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type]}"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // =========================================================
+        // AUTENTICAÇÃO & BLOQUEIO DO PAINEL DO LOJISTA
+        // =========================================================
+        function getStoredAdminPassword() {
+            return localStorage.getItem(ADMIN_PASS_STORAGE_KEY) || 'tcc2026';
+        }
+
+        function updateAdminLockUI() {
+            const lockIcon = document.getElementById('admin-lock-icon');
+            const hintBox = document.getElementById('default-password-hint');
+            const hasCustomPass = localStorage.getItem(ADMIN_PASS_STORAGE_KEY) !== null;
+
+            if (isAdminAuthenticated) {
+                lockIcon.className = "fa-solid fa-lock-open text-xs text-emerald-600";
+            } else {
+                lockIcon.className = "fa-solid fa-lock text-xs text-slate-400";
+            }
+
+            // Oculta a dica da senha padrão assim que você cria sua senha secreta
+            if (hintBox) {
+                if (hasCustomPass) hintBox.classList.add('hidden');
+                else hintBox.classList.remove('hidden');
+            }
+        }
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function verifyAdminPassword(e) {
+            e.preventDefault();
+            const input = document.getElementById('admin-password-input');
+            const errorEl = document.getElementById('admin-password-error');
+            const card = document.getElementById('admin-lock-card');
+
+            if (input.value === getStoredAdminPassword()) {
+                isAdminAuthenticated = true;
+                input.value = '';
+                errorEl.classList.add('hidden');
+                updateAdminLockUI();
+                showToast("Acesso liberado! Bem-vindo ao Painel do Lojista.", "success");
+                switchView('admin');
+            } else {
+                errorEl.classList.remove('hidden');
+                card.classList.remove('shake');
+                void card.offsetWidth; // Reinicia animação
+                card.classList.add('shake');
+                input.focus();
+                input.select();
+            }
+        }
+
+        function lockAdminPanel() {
+            isAdminAuthenticated = false;
+            updateAdminLockUI();
+            showToast("Painel do Lojista bloqueado com segurança.", "warning");
+            switchView('admin'); // Redireciona imediatamente para a tela de senha
+        }
+
+        function toggleChangePasswordModal(show) {
+            const modal = document.getElementById('modal-change-password');
+            if (show) {
+                document.getElementById('new-admin-pass').value = '';
+                document.getElementById('confirm-admin-pass').value = '';
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function saveNewAdminPassword(e) {
+            e.preventDefault();
+            const newPass = document.getElementById('new-admin-pass').value;
+            const confirmPass = document.getElementById('confirm-admin-pass').value;
+
+            if (newPass !== confirmPass) {
+                showToast("As senhas digitadas não coincidem.", "error");
+                return;
+            }
+
+            localStorage.setItem(ADMIN_PASS_STORAGE_KEY, newPass);
+            updateAdminLockUI();
+            toggleChangePasswordModal(false);
+            showToast("Sua nova senha secreta foi salva com sucesso!", "success");
+        }
+
+        // =========================================================
+        // ALTERNÂNCIA DE VISÕES (CLIENTE vs LOJISTA)
+        // =========================================================
+        function switchView(view) {
+            const clientSec = document.getElementById('view-client');
+            const adminSec = document.getElementById('view-admin');
+            const lockSec = document.getElementById('view-admin-lock');
+            const btnClient = document.getElementById('btn-view-client');
+            const btnAdmin = document.getElementById('btn-view-admin');
+            const cartBtnWrapper = document.getElementById('client-cart-btn-wrapper');
+
+            if (view === 'client') {
+                clientSec.classList.remove('hidden');
+                adminSec.classList.add('hidden');
+                lockSec.classList.add('hidden');
+                cartBtnWrapper.classList.remove('hidden');
+
+                btnClient.className = "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-brand-700 shadow-sm";
+                btnAdmin.className = "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-600 hover:text-slate-900";
+                renderCatalog();
+            } else {
+                clientSec.classList.add('hidden');
+                cartBtnWrapper.classList.add('hidden');
+
+                btnAdmin.className = "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-brand-700 shadow-sm";
+                btnClient.className = "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-600 hover:text-slate-900";
+
+                if (!isAdminAuthenticated) {
+                    adminSec.classList.add('hidden');
+                    lockSec.classList.remove('hidden');
+                    document.getElementById('admin-password-error').classList.add('hidden');
+                    updateAdminLockUI();
+                    setTimeout(() => document.getElementById('admin-password-input').focus(), 100);
+                } else {
+                    lockSec.classList.add('hidden');
+                    adminSec.classList.remove('hidden');
+                    renderAdminDashboard();
+                }
+            }
+        }
+
+        // =========================================================
+        // LÓGICA DA VITRINE DO CLIENTE
+        // =========================================================
+        function setCategoryFilter(cat) {
+            selectedCategory = cat;
+            document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+                if (btn.dataset.cat === cat) {
+                    btn.className = "cat-filter-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-brand-600 text-white transition";
+                } else {
+                    btn.className = "cat-filter-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+                }
+            });
+            renderCatalog();
+        }
+
+        function setSizeFilter(size) {
+            selectedSizeFilter = size;
+            document.querySelectorAll('.size-filter-btn').forEach(btn => {
+                if (btn.dataset.size === size) {
+                    btn.className = "size-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white transition";
+                } else {
+                    btn.className = "size-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
+                }
+            });
+            renderCatalog();
+        }
+
+        function selectCardSize(productId, size) {
+            selectedCardSizes[productId] = size;
+            renderCatalog();
+        }
+
+        function renderCatalog() {
+            const grid = document.getElementById('catalog-grid');
+            grid.innerHTML = '';
+
+            const filtered = products.filter(p => {
+                const matchCat = selectedCategory === 'Todas' || p.category === selectedCategory;
+                const matchSize = selectedSizeFilter === 'Todos' || (p.stock[selectedSizeFilter] && p.stock[selectedSizeFilter] > 0);
+                return matchCat && matchSize;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-white rounded-2xl p-10 text-center border border-slate-200">
+                        <i class="fa-solid fa-box-open text-4xl text-slate-300 mb-3"></i>
+                        <h3 class="text-lg font-bold text-slate-800">Nenhuma peça encontrada nessa grade</h3>
+                        <p class="text-sm text-slate-500 mt-1">Tente selecionar outro tamanho ou categoria nos filtros acima.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(p => {
+                const sizes = ['P', 'M', 'G', 'GG'];
+                // Auto-seleciona o primeiro tamanho disponível se nenhum estiver selecionado
+                if (!selectedCardSizes[p.id] || p.stock[selectedCardSizes[p.id]] <= 0) {
+                    const firstAvail = sizes.find(s => p.stock[s] > 0);
+                    selectedCardSizes[p.id] = firstAvail || null;
+                }
+                const activeSize = selectedCardSizes[p.id];
+                const activeQty = activeSize ? p.stock[activeSize] : 0;
+
+                const isPromo = p.originalPrice !== null;
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden";
+
+                card.innerHTML = `
+                    <!-- Ilustração Estilizada da Peça -->
+                    <div class="relative h-44 bg-gradient-to-br ${p.bgGradient} flex flex-col items-center justify-center p-4">
+                        <span class="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                            ${p.category}
+                        </span>
+                        ${isPromo ? `
+                            <span class="absolute top-3 right-3 bg-rose-600 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-lg shadow-sm animate-pulse">
+                                OFERTA -20%
+                            </span>
+                        ` : ''}
+                        <div class="w-20 h-20 rounded-2xl bg-white/70 backdrop-blur-sm flex items-center justify-center shadow-inner">
+                            <i class="fa-solid ${p.icon} text-4xl ${p.iconColor}"></i>
+                        </div>
+                        <div class="mt-2.5 flex items-center gap-1.5 bg-white/85 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-slate-700">
+                            <span class="w-2.5 h-2.5 rounded-full border border-slate-300" style="background-color: ${p.colorHex}"></span>
+                            <span>Cor: ${p.color}</span>
+                        </div>
+                    </div>
+
+                    <!-- Detalhes e Seletor de Grade Real -->
+                    <div class="p-4 flex-1 flex flex-col justify-between space-y-4">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base leading-snug">${p.name}</h3>
+                            <div class="mt-1.5 flex items-baseline gap-2">
+                                <span class="text-xl font-extrabold text-brand-700">${formatMoney(p.price)}</span>
+                                ${isPromo ? `<span class="text-xs line-through text-slate-400">${formatMoney(p.originalPrice)}</span>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Seletor de Tamanhos com Estoque Real -->
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-bold text-slate-600">Grade Disponível:</span>
+                                ${activeSize 
+                                    ? `<span class="font-semibold ${activeQty <= 2 ? 'text-amber-600' : 'text-emerald-600'}">${activeQty} un. no ${activeSize}</span>`
+                                    : `<span class="font-semibold text-rose-600">Esgotado</span>`
+                                }
+                            </div>
+                            <div class="grid grid-cols-4 gap-1.5">
+                                ${sizes.map(sz => {
+                                    const qty = p.stock[sz];
+                                    const isOut = qty <= 0;
+                                    const isSel = activeSize === sz;
+                                    if (isOut) {
+                                        return `<button disabled title="Esgotado" class="py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-300 text-xs font-bold line-through cursor-not-allowed">${sz}</button>`;
+                                    }
+                                    return `<button onclick="selectCardSize(${p.id}, '${sz}')" class="py-1.5 rounded-lg border text-xs font-bold transition ${isSel ? 'border-brand-600 bg-brand-600 text-white shadow-sm' : 'border-slate-300 bg-white text-slate-700 hover:border-brand-400'}">${sz}</button>`;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação: Provador Virtual & Reservar -->
+                        <div class="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                            <button onclick="openFittingModal(${p.id})" class="w-full py-2 px-3 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-ruler-combined"></i>
+                                <span>Provador Virtual (Descobrir Tamanho)</span>
+                            </button>
+                            <button onclick="addToCart(${p.id}, '${activeSize}')" ${!activeSize ? 'disabled' : ''} class="w-full py-2.5 px-3 rounded-xl ${activeSize ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'} font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm">
+                                <i class="fa-solid fa-bag-shopping"></i>
+                                <span>${activeSize ? `Reservar Tamanho ${activeSize}` : 'Grade Esgotada'}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // =========================================================
+        // PROVADOR VIRTUAL POR MEDIDAS
+        // =========================================================
+        function openFittingModal(productId) {
+            currentFittingProductId = productId;
+            const prod = products.find(p => p.id === productId);
+            document.getElementById('fitting-product-name').textContent = `Peça: ${prod.name}`;
+            document.getElementById('fitting-result-box').classList.add('hidden');
+            document.getElementById('modal-fitting').classList.remove('hidden');
+        }
+
+        function closeFittingModal() {
+            document.getElementById('modal-fitting').classList.add('hidden');
+        }
+
+        function setFitPreference(pref) {
+            currentFitPreference = pref;
+            document.querySelectorAll('.fit-pref-btn').forEach(btn => {
+                if (btn.dataset.pref === pref) {
+                    btn.className = "fit-pref-btn py-2.5 px-3 rounded-xl border-2 border-brand-600 bg-brand-50 text-xs font-bold text-brand-700 transition";
+                } else {
+                    btn.className = "fit-pref-btn py-2.5 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition";
+                }
+            });
+        }
+
+        function calculateFitting() {
+            const heightCm = parseFloat(document.getElementById('fit-height').value) || 170;
+            const weightKg = parseFloat(document.getElementById('fit-weight').value) || 70;
+            const prod = products.find(p => p.id === currentFittingProductId);
+
+            // Cálculo antropométrico simplificado baseado em IMC ajustado + modelagem da peça
+            const heightM = heightCm / 100;
+            const bmi = weightKg / (heightM * heightM);
+
+            // Pontuação base (0 = P, 1 = M, 2 = G, 3 = GG)
+            let score = 1;
+            if (bmi < 20.5 && heightCm < 172) score = 0;
+            else if (bmi < 24.8 && heightCm <= 180) score = 1;
+            else if (bmi < 28.5) score = 2;
+            else score = 3;
+
+            // Ajuste pela preferência de caimento
+            if (currentFitPreference === 'justo') score -= 1;
+            if (currentFitPreference === 'largo') score += 1;
+
+            // Ajuste pela modelagem específica da peça (ex: Oversized já é larga)
+            if (prod.fitFactor === 1 && currentFitPreference !== 'largo') score -= 0.5;
+            if (prod.fitFactor === -1) score += 0.5;
+
+            const finalIndex = Math.max(0, Math.min(3, Math.round(score)));
+            const sizeMap = ['P', 'M', 'G', 'GG'];
+            currentRecommendedSize = sizeMap[finalIndex];
+
+            const stockQty = prod.stock[currentRecommendedSize];
+            const resultBox = document.getElementById('fitting-result-box');
+            const recSizeEl = document.getElementById('fit-recommended-size');
+            const stockStatusEl = document.getElementById('fit-stock-status');
+            const addBtn = document.getElementById('fit-add-cart-btn');
+            const expEl = document.getElementById('fit-explanation');
+
+            recSizeEl.textContent = currentRecommendedSize;
+            resultBox.classList.remove('hidden');
+
+            if (stockQty > 0) {
+                stockStatusEl.textContent = `(${stockQty} disponível na loja)`;
+                stockStatusEl.className = "text-xs font-bold text-emerald-700";
+                addBtn.disabled = false;
+                addBtn.textContent = `+ Reservar Tamanho ${currentRecommendedSize}`;
+                addBtn.className = "bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition";
+            } else {
+                stockStatusEl.textContent = "(Esgotado nesta cor)";
+                stockStatusEl.className = "text-xs font-bold text-rose-600";
+                addBtn.disabled = true;
+                addBtn.textContent = "Indisponível";
+                addBtn.className = "bg-slate-300 text-slate-500 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed";
+            }
+
+            const modelagemTxt = prod.fitFactor === 1 ? "modelagem Oversized (ampla)" : (prod.fitFactor === -1 ? "modelagem Slim/Justa" : "modelagem Regular");
+            expEl.textContent = `Para ${heightCm}cm e ${weightKg}kg com preferência "${currentFitPreference}", o tamanho ${currentRecommendedSize} oferece o melhor caimento considerando que esta peça possui ${modelagemTxt}.`;
+        }
+
+        function addRecommendedToCart() {
+            addToCart(currentFittingProductId, currentRecommendedSize);
+            closeFittingModal();
+        }
+
+        // =========================================================
+        // SACOLA DE RESERVA & ENVIO WHATSAPP
+        // =========================================================
+        function addToCart(productId, size) {
+            if (!size || size === 'null') return;
+            const prod = products.find(p => p.id === productId);
+            const inCartQty = cart.filter(item => item.productId === productId && item.size === size).length;
+
+            if (inCartQty >= prod.stock[size]) {
+                showToast(`Limite atingido! Só existem ${prod.stock[size]} unidades do tamanho ${size}.`, 'warning');
+                return;
+            }
+
+            cart.push({
+                uid: Date.now() + Math.random(),
+                productId: prod.id,
+                name: prod.name,
+                color: prod.color,
+                size: size,
+                price: prod.price
+            });
+
+            updateCartBadge();
+            showToast(`${prod.name} (${size}) adicionado à sacola de reserva!`);
+        }
+
+        function removeFromCart(uid) {
+            cart = cart.filter(item => item.uid !== uid);
+            updateCartBadge();
+            renderCartModal();
+        }
+
+        function updateCartBadge() {
+            document.getElementById('cart-badge').textContent = cart.length;
+        }
+
+        function toggleCartModal(show) {
+            const modal = document.getElementById('modal-cart');
+            if (show) {
+                renderCartModal();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderCartModal() {
+            const container = document.getElementById('cart-items-container');
+            const totalEl = document.getElementById('cart-total-price');
+
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-400">
+                        <i class="fa-solid fa-bag-shopping text-3xl mb-2"></i>
+                        <p class="text-sm font-medium">Sua sacola de reserva está vazia.</p>
+                    </div>
+                `;
+                totalEl.textContent = "R$ 0,00";
+                return;
+            }
+
+            let total = 0;
+            container.innerHTML = cart.map(item => {
+                total += item.price;
+                return `
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">${item.name}</p>
+                            <p class="text-xs text-slate-500">Cor: ${item.color} • Tamanho: <strong class="text-brand-700">${item.size}</strong></p>
+                            <p class="text-xs font-bold text-slate-900 mt-0.5">${formatMoney(item.price)}</p>
+                        </div>
+                        <button onclick="removeFromCart(${item.uid})" class="text-rose-500 hover:text-rose-700 p-2" title="Remover">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            totalEl.textContent = formatMoney(total);
+        }
+
+        function sendOrderToWhatsApp() {
+            if (cart.length === 0) {
+                showToast("Adicione pelo menos uma peça antes de enviar.", "warning");
+                return;
+            }
+            let total = 0;
+            let text = "Olá! Gostaria de reservar/provar as seguintes peças disponíveis no catálogo:\n\n";
+            cart.forEach((item, idx) => {
+                total += item.price;
+                text += `${idx + 1}. *${item.name}* | Cor: ${item.color} | Tam: *${item.size}* (${formatMoney(item.price)})\n`;
+            });
+            text += `\n*Total Estimado:* ${formatMoney(total)}`;
+
+            // Copia mensagem e simula abertura do WhatsApp
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            showToast("Resumo do pedido copiado! Abrindo WhatsApp da loja...", "success");
+            const encoded = encodeURIComponent(text);
+            window.open(`https://wa.me/?text=${encoded}`, '_blank');
+        }
+
+        // =========================================================
+        // PAINEL DO LOJISTA (GESTÃO, GRADE & CONDICIONAL)
+        // =========================================================
+        function switchAdminTab(tab) {
+            const tabCond = document.getElementById('admin-tab-conditional');
+            const tabStock = document.getElementById('admin-tab-stock');
+            const btnCond = document.getElementById('tab-btn-conditional');
+            const btnStock = document.getElementById('tab-btn-stock');
+
+            if (tab === 'conditional') {
+                tabCond.classList.remove('hidden');
+                tabStock.classList.add('hidden');
+                btnCond.className = "px-4 py-2.5 rounded-xl text-sm font-bold bg-brand-600 text-white shadow-sm transition flex items-center gap-2";
+                btnStock.className = "px-4 py-2.5 rounded-xl text-sm font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition flex items-center gap-2";
+            } else {
+                tabCond.classList.add('hidden');
+                tabStock.classList.remove('hidden');
+                btnStock.className = "px-4 py-2.5 rounded-xl text-sm font-bold bg-brand-600 text-white shadow-sm transition flex items-center gap-2";
+                btnCond.className = "px-4 py-2.5 rounded-xl text-sm font-bold bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition flex items-center gap-2";
+            }
+        }
+
+        function renderAdminDashboard() {
+            // 1. Calcular KPIs
+            let totalPieces = 0;
+            let lowGradeCount = 0;
+            let stagnantProducts = 0;
+
+            products.forEach(p => {
+                const sum = p.stock.P + p.stock.M + p.stock.G + p.stock.GG;
+                totalPieces += sum;
+                if (p.daysInStock >= 60) stagnantProducts++;
+                if (p.stock.P === 0 || p.stock.M === 0 || p.stock.G === 0) lowGradeCount++;
+            });
+
+            let piecesInConditional = 0;
+            let overdueConditionals = 0;
+            conditionals.forEach(c => {
+                if (c.status !== 'Finalizado') {
+                    piecesInConditional += c.items.length;
+                    if (c.status === 'Atrasado') overdueConditionals++;
+                }
+            });
+
+            document.getElementById('kpi-total-stock').textContent = totalPieces;
+            document.getElementById('kpi-conditional-count').textContent = piecesInConditional;
+            document.getElementById('kpi-stagnant-count').textContent = stagnantProducts;
+            document.getElementById('kpi-alerts-count').textContent = overdueConditionals + lowGradeCount;
+
+            // 2. Popular Select do Formulário de Condicional
+            populateCondProductSelect();
+
+            // 3. Renderizar Lista de Condicionais
+            renderConditionalsList();
+
+            // 4. Renderizar Tabela de Estoque por Grade
+            renderStockTable();
+        }
+
+        // --- Controle de Condicional (Sacola de Prova) ---
+        function populateCondProductSelect() {
+            const select = document.getElementById('cond-product-select');
+            select.innerHTML = products.map(p => `<option value="${p.id}">${p.name} (${p.color})</option>`).join('');
+            updateCondSizeOptions();
+        }
+
+        function updateCondSizeOptions() {
+            const prodId = parseInt(document.getElementById('cond-product-select').value);
+            const prod = products.find(p => p.id === prodId);
+            const sizeSelect = document.getElementById('cond-size-select');
+            if (!prod) return;
+
+            const sizes = ['P', 'M', 'G', 'GG'];
+            sizeSelect.innerHTML = sizes.map(sz => {
+                // Desconta o que já está na lista temporária
+                const alreadyTemp = tempCondItems.filter(i => i.productId === prodId && i.size === sz).length;
+                const avail = prod.stock[sz] - alreadyTemp;
+                return `<option value="${sz}" ${avail <= 0 ? 'disabled' : ''}>${sz} (${avail} un.)</option>`;
+            }).join('');
+        }
+
+        function addTempCondItem() {
+            const prodId = parseInt(document.getElementById('cond-product-select').value);
+            const size = document.getElementById('cond-size-select').value;
+            const prod = products.find(p => p.id === prodId);
+
+            const alreadyTemp = tempCondItems.filter(i => i.productId === prodId && i.size === size).length;
+            if (!prod || (prod.stock[size] - alreadyTemp) <= 0) {
+                showToast("Tamanho indisponível em estoque para condicional.", "warning");
+                return;
+            }
+
+            tempCondItems.push({
+                productId: prod.id,
+                productName: prod.name,
+                size: size,
+                price: prod.price
+            });
+
+            renderTempCondItems();
+            updateCondSizeOptions();
+        }
+
+        function removeTempCondItem(index) {
+            tempCondItems.splice(index, 1);
+            renderTempCondItems();
+            updateCondSizeOptions();
+        }
+
+        function renderTempCondItems() {
+            const list = document.getElementById('cond-temp-items-list');
+            if (tempCondItems.length === 0) {
+                list.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-2">Nenhuma peça selecionada ainda.</p>`;
+                return;
+            }
+            list.innerHTML = tempCondItems.map((item, idx) => `
+                <div class="flex justify-between items-center bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
+                    <span class="font-medium text-slate-700 truncate pr-2">${item.productName} <strong>(${item.size})</strong></span>
+                    <button type="button" onclick="removeTempCondItem(${idx})" class="text-rose-500 hover:text-rose-700 font-bold">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function createConditional(e) {
+            e.preventDefault();
+            if (tempCondItems.length === 0) {
+                showToast("Inclua pelo menos 1 peça na sacola de prova.", "warning");
+                return;
+            }
+
+            const clientName = document.getElementById('cond-client-name').value.trim();
+            const phone = document.getElementById('cond-client-phone').value.trim();
+            const dueDate = document.getElementById('cond-due-date').value;
+
+            // Baixa temporária no estoque real
+            tempCondItems.forEach(item => {
+                const prod = products.find(p => p.id === item.productId);
+                if (prod && prod.stock[item.size] > 0) {
+                    prod.stock[item.size] -= 1;
+                }
+            });
+
+            const today = getRelativeDate(0);
+            const status = dueDate < today ? "Atrasado" : "Em prova";
+
+            conditionals.unshift({
+                id: Date.now(),
+                clientName,
+                phone,
+                outDate: today,
+                dueDate,
+                status,
+                items: [...tempCondItems]
+            });
+
+            // Resetar formulário
+            document.getElementById('cond-client-name').value = '';
+            document.getElementById('cond-client-phone').value = '';
+            tempCondItems = [];
+            renderTempCondItems();
+
+            showToast(`Sacola de condicional registrada para ${clientName}! Estoque atualizado.`);
+            renderAdminDashboard();
+        }
+
+        // Ação 1: Cliente devolveu a peça -> Volta ao estoque
+        function returnConditionalItem(condId, itemIdx) {
+            const cond = conditionals.find(c => c.id === condId);
+            if (!cond) return;
+
+            const item = cond.items[itemIdx];
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+                prod.stock[item.size] += 1; // Devolve à grade
+            }
+
+            cond.items.splice(itemIdx, 1);
+            if (cond.items.length === 0) {
+                cond.status = 'Finalizado';
+            }
+
+            showToast(`Peça "${item.productName} (${item.size})" devolvida ao estoque!`);
+            renderAdminDashboard();
+        }
+
+        // Ação 2: Cliente ficou com a peça -> Venda concluída (baixa definitiva + zera dias sem giro)
+        function sellConditionalItem(condId, itemIdx) {
+            const cond = conditionals.find(c => c.id === condId);
+            if (!cond) return;
+
+            const item = cond.items[itemIdx];
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+                prod.daysInStock = 0; // Renovação de giro da peça
+            }
+
+            cond.items.splice(itemIdx, 1);
+            if (cond.items.length === 0) {
+                cond.status = 'Finalizado';
+            }
+
+            showToast(`Venda confirmada: "${item.productName} (${item.size})"!`, "success");
+            renderAdminDashboard();
+        }
+
+        function renderConditionalsList() {
+            const container = document.getElementById('conditionals-list');
+            const activeList = conditionals.filter(c => c.status !== 'Finalizado');
+
+            if (activeList.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                        <i class="fa-solid fa-check-double text-3xl text-emerald-500 mb-2"></i>
+                        <p class="text-sm font-bold text-slate-700">Nenhuma sacola pendente!</p>
+                        <p class="text-xs text-slate-500">Todas as peças em condicional já foram devolvidas ou vendidas.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = activeList.map(c => {
+                const isLate = c.status === 'Atrasado';
+                const badgeClass = isLate 
+                    ? 'bg-rose-100 text-rose-700 border-rose-200' 
+                    : 'bg-amber-100 text-amber-800 border-amber-200';
+                const totalBag = c.items.reduce((acc, i) => acc + i.price, 0);
+
+                return `
+                    <div class="border ${isLate ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200 bg-slate-50/50'} rounded-xl p-4 space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-bold text-slate-900 text-base">${c.clientName}</h4>
+                                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${badgeClass}">
+                                        ${isLate ? '<i class="fa-solid fa-clock mr-1"></i>Prazo Atrasado' : '<i class="fa-solid fa-bag-shopping mr-1"></i>Em Prova'}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-0.5">
+                                    <i class="fa-brands fa-whatsapp text-emerald-600 mr-1"></i>${c.phone} • 
+                                    Devolução prevista: <strong class="${isLate ? 'text-rose-600' : 'text-slate-700'}">${formatDateBR(c.dueDate)}</strong>
+                                </p>
+                            </div>
+                            <div class="text-left sm:text-right">
+                                <span class="text-[11px] text-slate-400 uppercase font-bold block">Valor na Sacola</span>
+                                <span class="text-sm font-extrabold text-slate-900">${formatMoney(totalBag)}</span>
+                            </div>
+                        </div>
+
+                        <!-- Itens individuais dentro da sacola -->
+                        <div class="space-y-2 pt-2 border-t border-slate-200/80">
+                            ${c.items.map((item, idx) => `
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
+                                    <div>
+                                        <span class="font-bold text-slate-800">${item.productName}</span>
+                                        <span class="ml-1.5 px-2 py-0.5 rounded bg-slate-100 font-extrabold text-brand-700">Tam: ${item.size}</span>
+                                        <span class="ml-1.5 text-slate-500">${formatMoney(item.price)}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 self-end sm:self-auto">
+                                        <button onclick="returnConditionalItem(${c.id}, ${idx})" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition flex items-center gap-1" title="Devolver peça ao estoque">
+                                            <i class="fa-solid fa-rotate-left"></i> Devolveu
+                                        </button>
+                                        <button onclick="sellConditionalItem(${c.id}, ${idx})" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center gap-1" title="Confirmar compra da peça">
+                                            <i class="fa-solid fa-dollar-sign"></i> Comprou
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- Tabela de Estoque por Grade & Liquidação Automática ---
+        function adjustStock(productId, size, delta) {
+            const prod = products.find(p => p.id === productId);
+            if (!prod) return;
+            const nextVal = prod.stock[size] + delta;
+            if (nextVal < 0) return;
+            prod.stock[size] = nextVal;
+            renderAdminDashboard();
+        }
+
+        function applyClearanceDiscount(productId) {
+            const prod = products.find(p => p.id === productId);
+            if (!prod || prod.originalPrice !== null) return;
+            prod.originalPrice = prod.price;
+            prod.price = Number((prod.price * 0.8).toFixed(2)); // 20% OFF
+            showToast(`Promoção de 20% aplicada em "${prod.name}"! Já visível na vitrine.`);
+            renderAdminDashboard();
+        }
+
+        function renderStockTable() {
+            const tbody = document.getElementById('stock-table-body');
+            const sizes = ['P', 'M', 'G', 'GG'];
+
+            tbody.innerHTML = products.map(p => {
+                const isStagnant = p.daysInStock >= 60;
+                const isPromo = p.originalPrice !== null;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3.5 px-4">
+                            <p class="font-bold text-slate-900">${p.name}</p>
+                            <p class="text-xs text-slate-500">${p.category} • Cor: ${p.color}</p>
+                        </td>
+                        <td class="py-3.5 px-3">
+                            <span class="font-bold text-slate-900">${formatMoney(p.price)}</span>
+                            ${isPromo ? `<span class="block text-[11px] line-through text-slate-400">${formatMoney(p.originalPrice)}</span>` : ''}
+                        </td>
+                        <td class="py-3.5 px-3">
+                            <div class="flex items-center justify-center gap-2 flex-wrap">
+                                ${sizes.map(sz => {
+                                    const qty = p.stock[sz];
+                                    return `
+                                        <div class="flex items-center bg-slate-100 rounded-lg border ${qty === 0 ? 'border-rose-300 bg-rose-50' : 'border-slate-200'} px-1.5 py-1">
+                                            <span class="text-[11px] font-extrabold text-slate-600 mr-1.5">${sz}:</span>
+                                            <button onclick="adjustStock(${p.id}, '${sz}', -1)" class="w-5 h-5 rounded bg-white text-slate-600 hover:bg-slate-200 font-bold text-xs flex items-center justify-center">-</button>
+                                            <span class="w-6 text-center text-xs font-extrabold ${qty === 0 ? 'text-rose-600' : 'text-slate-900'}">${qty}</span>
+                                            <button onclick="adjustStock(${p.id}, '${sz}', 1)" class="w-5 h-5 rounded bg-white text-slate-600 hover:bg-slate-200 font-bold text-xs flex items-center justify-center">+</button>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-3 text-center">
+                            ${isStagnant 
+                                ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800"><i class="fa-solid fa-triangle-exclamation"></i> ${p.daysInStock}d parado</span>`
+                                : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">${p.daysInStock}d em loja</span>`
+                            }
+                        </td>
+                        <td class="py-3.5 px-4 text-right">
+                            ${isStagnant && !isPromo
+                                ? `<button onclick="applyClearanceDiscount(${p.id})" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition">Aplicar 20% OFF</button>`
+                                : (isPromo 
+                                    ? `<span class="text-xs font-bold text-emerald-600"><i class="fa-solid fa-tag mr-1"></i>Em liquidação</span>`
+                                    : `<span class="text-xs text-slate-400">Giro normal</span>`)
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Cadastro de Nova Peça
+        function toggleNewProductModal(show) {
+            const modal = document.getElementById('modal-new-product');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function addNewProduct(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-prod-name').value.trim();
+            const category = document.getElementById('new-prod-cat').value;
+            const color = document.getElementById('new-prod-color').value.trim();
+            const price = parseFloat(document.getElementById('new-prod-price').value);
+            const daysInStock = parseInt(document.getElementById('new-prod-days').value) || 0;
+
+            const pQty = parseInt(document.getElementById('new-grade-p').value) || 0;
+            const mQty = parseInt(document.getElementById('new-grade-m').value) || 0;
+            const gQty = parseInt(document.getElementById('new-grade-g').value) || 0;
+            const ggQty = parseInt(document.getElementById('new-grade-gg').value) || 0;
+
+            const iconsMap = {
+                'Camisetas': 'fa-shirt',
+                'Calças': 'fa-socks',
+                'Vestidos': 'fa-person-dress',
+                'Jaquetas': 'fa-vest'
+            };
+
+            products.unshift({
+                id: Date.now(),
+                name,
+                category,
+                color,
+                colorHex: '#6d28d9',
+                price,
+                originalPrice: null,
+                daysInStock,
+                fitFactor: 0,
+                icon: iconsMap[category] || 'fa-shirt',
+                bgGradient: 'from-brand-100 to-purple-200',
+                iconColor: 'text-brand-800',
+                stock: { P: pQty, M: mQty, G: gQty, GG: ggQty }
+            });
+
+            toggleNewProductModal(false);
+            e.target.reset();
+            showToast(`Peça "${name}" cadastrada com sucesso na grade!`);
+            renderAdminDashboard();
+        }
+
+        // Inicialização ao carregar a página
+        window.onload = function () {
+            document.getElementById('cond-due-date').value = getRelativeDate(2);
+            updateAdminLockUI();
+            renderCatalog();
+        };
+    </script>
+</body>
+</html>
